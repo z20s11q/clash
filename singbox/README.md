@@ -1,6 +1,6 @@
 # sing-box AnyTLS + Reality 一键部署
 
-基于 sing-box **v1.13.x**，使用 AnyTLS 协议 + Reality TLS 伪装，一键部署代理服务端并自动生成客户端配置。
+服务端使用 sing-box **v1.12.x**（稳定），客户端配置基于 **v1.13.x** 格式。使用 AnyTLS 协议 + Reality TLS 伪装，一键部署代理服务端并自动生成客户端配置。
 
 ## 快速开始
 
@@ -19,14 +19,13 @@ bash <(curl -fsSL https://raw.githubusercontent.com/z20s11q/clash/main/singbox/i
 ## 脚本做了什么
 
 1. 安装依赖（curl、tar、jq、openssl）
-2. 下载安装 sing-box **1.13.x** 最新稳定版
-3. 验证 Reality 支持（检查 `with_utls` build tag）
-4. 验证 handshake 目标站点连通性（不通则自动切换备选）
-5. 自动生成 Reality 密钥对和 short_id
-6. 写入服务端配置到 `/etc/sing-box/config.json`，并校验
-7. 创建 systemd 服务并启动（开机自启）
-8. 自动获取服务器公网 IP
-9. 在**脚本执行目录**生成 `client-config.json`（已自动填好 IP、密码、公钥等）
+2. 下载安装 sing-box **1.12.x** 最新稳定版作为服务端
+3. 验证 handshake 目标站点连通性（不通则自动切换备选）
+4. 自动生成 Reality 密钥对和 short_id
+5. 写入服务端配置到 `/etc/sing-box/config.json`（1.12.x 格式），并校验
+6. 创建 systemd 服务并启动（开机自启）
+7. 自动获取服务器公网 IP
+8. 在**脚本执行目录**生成 `client-config.json`（**1.13.x 格式**，已自动填好 IP、密码、公钥等）
 
 ## 部署完成后
 
@@ -94,5 +93,5 @@ singbox/
 
 - 服务端系统：Debian / Ubuntu / CentOS / RHEL 及其衍生版（需 systemd）
 - 架构：amd64、arm64、armv7、386
-- 服务端 sing-box：1.13.x（脚本自动下载最新稳定版）
-- 客户端 sing-box：1.12.x 或 1.13.x 均可
+- 服务端 sing-box：1.12.x（脚本自动下载最新稳定版，已验证稳定）
+- 客户端 sing-box：1.13.x（配置按 1.13.x 格式生成，兼容 1.12.x）
