@@ -4,7 +4,7 @@ set -euo pipefail
 # ============================================================
 #  sing-box AnyTLS + Reality 一键部署脚本
 #  服务端: 1.12.x  客户端: 1.13.x
-#  用法: bash install-singbox.sh <用户名> <密码>
+#  用法: bash install-singbox.sh <用户名> <密码> [SNI域名]
 # ============================================================
 
 RED='\033[0;31m'
@@ -19,10 +19,11 @@ error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
 if [[ $# -lt 2 ]]; then
     echo -e "${CYAN}用法:${NC}"
-    echo -e "  bash <(curl -fsSL URL) <用户名> <密码>"
+    echo -e "  bash <(curl -fsSL URL) <用户名> <密码> [SNI域名]"
     echo -e ""
-    echo -e "  用户名: anytls 用户标识（任意字符串）"
-    echo -e "  密码:   anytls 认证密码"
+    echo -e "  用户名:   anytls 用户标识（任意字符串）"
+    echo -e "  密码:     anytls 认证密码"
+    echo -e "  SNI域名:  Reality 伪装域名（可选，默认 www.bing.com）"
     exit 1
 fi
 
@@ -30,7 +31,9 @@ fi
 
 SB_USER="$1"
 SB_PASS="$2"
+SNI="${3:-www.bing.com}"
 SB_PORT=443
+SNI_FALLBACK="www.bing.com"
 SNI="www.bing.com"
 CONFIG_DIR="/etc/sing-box"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
@@ -140,11 +143,10 @@ check_handshake_target() {
     if echo | openssl s_client -connect "${SNI}:443" -servername "${SNI}" </dev/null 2>/dev/null | grep -q 'Verify return code: 0'; then
         info "${SNI}:443 TLS 握手成功"
     else
-        local alt_sni="itunes.apple.com"
-        warn "${SNI}:443 TLS 握手失败，切换到备选: ${alt_sni}"
-        if echo | openssl s_client -connect "${alt_sni}:443" -servername "${alt_sni}" </dev/null 2>/dev/null | grep -q 'Verify return code: 0'; then
-            SNI="$alt_sni"
-            info "备选 ${SNI}:443 TLS 握手成功"
+        warn "${SNI}:443 TLS 握手失败，切换到备选: ${SNI_FALLBACK}"
+        if echo | openssl s_client -connect "${SNI_FALLBACK}:443" -servername "${SNI_FALLBACK}" </dev/null 2>/dev/null | grep -q 'Verify return code: 0'; then
+            SNI="$SNI_FALLBACK"
+            info "${SNI}:443 TLS 握手成功"
         else
             warn "备选也不通，继续使用原 SNI（部署后请自行验证）"
         fi
