@@ -31,7 +31,7 @@ fi
 SB_USER="$1"
 SB_PASS="$2"
 SB_PORT=443
-SNI="www.bilibili.com"
+SNI="www.microsoft.com"
 CONFIG_DIR="/etc/sing-box"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 CLIENT_FILE="${PWD}/client-config.json"

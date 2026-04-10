@@ -38,7 +38,7 @@
       "password": "",
       "tls": {
         "enabled": true,
-        "server_name": "www.bilibili.com",
+        "server_name": "www.microsoft.com",
         "utls": {
           "enabled": true,
           "fingerprint": "chrome"

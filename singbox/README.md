@@ -56,7 +56,7 @@ sing-box run -c client-config.json
 
 - 协议：AnyTLS
 - 端口：443
-- TLS 伪装：Reality（handshake 到 www.bilibili.com，不通则自动切换备选）
+- TLS 伪装：Reality（handshake 到 www.microsoft.com，不通则自动切换备选）
 - 配置路径：`/etc/sing-box/config.json`
 
 ### 客户端配置
