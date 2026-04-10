@@ -17,7 +17,9 @@ warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
 if [[ $# -lt 2 ]]; then
-    echo -e "${CYAN}用法: bash $0 <用户名> <密码>${NC}"
+    echo -e "${CYAN}用法:${NC}"
+    echo -e "  bash <(curl -fsSL URL) <用户名> <密码>"
+    echo -e ""
     echo -e "  用户名: anytls 用户标识（任意字符串）"
     echo -e "  密码:   anytls 认证密码"
     exit 1
@@ -30,8 +32,7 @@ SB_PASS="$2"
 SB_PORT=443
 CONFIG_DIR="/etc/sing-box"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CLIENT_FILE="${SCRIPT_DIR}/client-config.json"
+CLIENT_FILE="${PWD}/client-config.json"
 
 # ======================== 检测架构 ========================
 detect_arch() {
