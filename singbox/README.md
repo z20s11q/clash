@@ -7,14 +7,26 @@
 在裸云服务器上（需 root 权限），执行以下命令即可完成全部部署：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/z20s11q/clash/main/singbox/install-singbox.sh) 用户名 密码
+bash <(curl -fsSL https://raw.githubusercontent.com/z20s11q/clash/main/singbox/install-singbox.sh) 用户名 密码 [SNI域名]
 ```
 
-将 `用户名` 和 `密码` 替换为你自己想设的值，例如：
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| 用户名 | 是 | anytls 用户标识（任意字符串） |
+| 密码 | 是 | anytls 认证密码 |
+| SNI域名 | 否 | Reality 伪装域名，默认 `www.bing.com` |
+
+示例：
 
 ```bash
+# 使用默认 SNI（www.bing.com）
 bash <(curl -fsSL https://raw.githubusercontent.com/z20s11q/clash/main/singbox/install-singbox.sh) myuser myP@ssw0rd
+
+# 自定义 SNI
+bash <(curl -fsSL https://raw.githubusercontent.com/z20s11q/clash/main/singbox/install-singbox.sh) myuser myP@ssw0rd www.apple.com
 ```
+
+> 如果指定的 SNI 域名 TLS 握手不通，脚本会自动 fallback 到 `www.bing.com`。服务端和客户端配置的 SNI 始终保持同步。
 
 ## 脚本做了什么
 
@@ -56,7 +68,7 @@ sing-box run -c client-config.json
 
 - 协议：AnyTLS
 - 端口：443
-- TLS 伪装：Reality（handshake 到 www.bing.com，不通则自动切换备选）
+- TLS 伪装：Reality（handshake 到指定 SNI 域名，不通则 fallback 到 www.bing.com）
 - 配置路径：`/etc/sing-box/config.json`
 
 ### 客户端配置
