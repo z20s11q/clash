@@ -34,6 +34,7 @@ SB_PASS="$2"
 SNI="${3:-www.bing.com}"
 SB_PORT=443
 SNI_FALLBACK="www.bing.com"
+SNI="www.bing.com"
 CONFIG_DIR="/etc/sing-box"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 CLIENT_FILE="${PWD}/client-config.json"
