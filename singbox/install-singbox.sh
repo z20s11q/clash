@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # ============================================================
-#  sing-box AnyTLS + Reality 一键部署脚本 (1.13.x)
+#  sing-box AnyTLS + Reality 一键部署脚本
+#  服务端: 1.12.x  客户端: 1.13.x
 #  用法: bash install-singbox.sh <用户名> <密码>
 # ============================================================
 
@@ -30,7 +31,7 @@ fi
 SB_USER="$1"
 SB_PASS="$2"
 SB_PORT=443
-SNI="www.bilibili.com"
+SNI="www.microsoft.com"
 CONFIG_DIR="/etc/sing-box"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 CLIENT_FILE="${PWD}/client-config.json"
@@ -72,30 +73,30 @@ install_deps() {
     fi
 }
 
-# ======================== 安装 sing-box ========================
+# ======================== 安装 sing-box (1.12.x 服务端) ========================
 install_singbox() {
     if command -v sing-box &>/dev/null; then
         local ver
         ver=$(sing-box version 2>/dev/null | head -1 | awk '{print $NF}')
         info "sing-box 已安装，版本: ${ver}"
-        if [[ "$ver" == 1.13.* ]]; then
+        if [[ "$ver" == 1.12.* ]]; then
             info "版本符合要求，跳过安装"
             return 0
         fi
-        warn "版本不是 1.13.x，将重新安装..."
+        warn "当前版本不是 1.12.x，将安装 1.12.x..."
     fi
 
     local arch
     arch=$(detect_arch)
 
-    info "获取 sing-box 1.13.x 最新稳定版本号..."
+    info "获取 sing-box 1.12.x 最新稳定版本号..."
     local version
     version=$(curl -s "https://api.github.com/repos/SagerNet/sing-box/releases" \
-        | jq -r '[.[] | select(.prerelease == false) | select(.tag_name | startswith("v1.13."))][0].tag_name' \
+        | jq -r '[.[] | select(.prerelease == false) | select(.tag_name | startswith("v1.12."))][0].tag_name' \
         | sed 's/^v//')
 
     if [[ -z "$version" || "$version" == "null" ]]; then
-        version="1.13.5"
+        version="1.12.25"
         warn "无法获取最新版本，使用默认版本: ${version}"
     fi
 
@@ -129,28 +130,12 @@ WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    info "sing-box v${version} 安装完成"
-}
-
-# ======================== 验证 Reality 支持 ========================
-check_reality_support() {
-    info "检查 sing-box 是否包含 Reality 支持..."
-    local tags
-    tags=$(sing-box version 2>/dev/null | grep -i 'Tags:' || true)
-    if echo "$tags" | grep -q 'with_utls'; then
-        info "Reality 支持已确认 (with_utls 已编译)"
-    else
-        warn "无法确认 with_utls tag，继续尝试..."
-    fi
+    info "sing-box v${version} 安装完成（服务端）"
 }
 
 # ======================== 验证 handshake 目标连通性 ========================
 check_handshake_target() {
     info "验证 handshake 目标 ${SNI}:443 的连通性..."
-
-    if ! curl -so /dev/null --connect-timeout 5 "https://${SNI}" 2>/dev/null; then
-        warn "${SNI} HTTPS 连接超时，尝试 TLS 握手测试..."
-    fi
 
     if echo | openssl s_client -connect "${SNI}:443" -servername "${SNI}" </dev/null 2>/dev/null | grep -q 'Verify return code: 0'; then
         info "${SNI}:443 TLS 握手成功"
@@ -161,7 +146,7 @@ check_handshake_target() {
             SNI="$alt_sni"
             info "备选 ${SNI}:443 TLS 握手成功"
         else
-            warn "备选也不通，继续使用 ${SNI}（部署后请自行验证）"
+            warn "备选也不通，继续使用原 SNI（部署后请自行验证）"
         fi
     fi
 }
@@ -187,11 +172,11 @@ generate_keys() {
     info "  ShortID:    ${SHORT_ID}"
 }
 
-# ======================== 写入服务端配置 ========================
+# ======================== 写入服务端配置 (1.12.x 格式) ========================
 write_server_config() {
     mkdir -p "$CONFIG_DIR"
 
-    info "写入服务端配置到 ${CONFIG_FILE}..."
+    info "写入服务端配置到 ${CONFIG_FILE} (1.12.x 格式)..."
     cat > "$CONFIG_FILE" << SEOF
 {
   "log": {
@@ -243,11 +228,11 @@ SEOF
     info "服务端配置校验通过"
 }
 
-# ======================== 写入客户端配置 ========================
+# ======================== 写入客户端配置 (1.13.x 格式) ========================
 write_client_config() {
     local server_ip="$1"
 
-    info "写入客户端配置到 ${CLIENT_FILE}..."
+    info "写入客户端配置到 ${CLIENT_FILE} (1.13.x 格式)..."
     cat > "$CLIENT_FILE" << CEOF
 {
   "log": {
@@ -331,7 +316,7 @@ write_client_config() {
 }
 CEOF
 
-    info "客户端配置已生成"
+    info "客户端配置已生成 (1.13.x 格式)"
 }
 
 # ======================== 启动服务 ========================
@@ -352,12 +337,15 @@ start_service() {
 # ======================== 打印信息 ========================
 print_result() {
     local server_ip="$1"
+    local ver
+    ver=$(sing-box version 2>/dev/null | head -1 | awk '{print $NF}')
     echo ""
     echo -e "${CYAN}============================================================${NC}"
     echo -e "${GREEN}  sing-box AnyTLS + Reality 部署完成！${NC}"
     echo -e "${CYAN}============================================================${NC}"
     echo ""
-    echo -e "  ${YELLOW}sing-box 版本:${NC}  $(sing-box version 2>/dev/null | head -1 | awk '{print $NF}')"
+    echo -e "  ${YELLOW}服务端版本:${NC}    ${ver} (1.12.x)"
+    echo -e "  ${YELLOW}客户端配置:${NC}    1.13.x 格式"
     echo -e "  ${YELLOW}服务器 IP:${NC}      ${server_ip}"
     echo -e "  ${YELLOW}端口:${NC}           ${SB_PORT}"
     echo -e "  ${YELLOW}用户名:${NC}         ${SB_USER}"
@@ -379,6 +367,7 @@ print_result() {
     echo -e "${CYAN}------------------------------------------------------------${NC}"
     echo -e "  ${GREEN}客户端使用:${NC}"
     echo -e "    将 ${CLIENT_FILE} 复制到客户端机器"
+    echo -e "    客户端需安装 sing-box 1.13.x"
     echo -e "    运行: sing-box run -c client-config.json"
     echo -e "${CYAN}============================================================${NC}"
     echo ""
@@ -387,13 +376,13 @@ print_result() {
 # ======================== 主流程 ========================
 main() {
     echo -e "${CYAN}============================================================${NC}"
-    echo -e "${CYAN}    sing-box AnyTLS + Reality 一键部署脚本 (1.13.x)${NC}"
+    echo -e "${CYAN}  sing-box AnyTLS + Reality 一键部署${NC}"
+    echo -e "${CYAN}  服务端: 1.12.x  |  客户端: 1.13.x${NC}"
     echo -e "${CYAN}============================================================${NC}"
     echo ""
 
     install_deps
     install_singbox
-    check_reality_support
     check_handshake_target
     generate_keys
 
