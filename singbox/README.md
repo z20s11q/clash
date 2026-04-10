@@ -1,6 +1,6 @@
 # sing-box AnyTLS + Reality 一键部署
 
-基于 sing-box **v1.13.x**，使用 AnyTLS 协议 + Reality TLS 伪装，一键部署代理服务端并自动生成客户端配置。
+使用 AnyTLS 协议 + Reality TLS 伪装，一键部署代理服务端并自动生成客户端配置。
 
 ## 快速开始
 
@@ -19,12 +19,16 @@ bash <(curl -fsSL https://raw.githubusercontent.com/z20s11q/clash/main/singbox/i
 ## 脚本做了什么
 
 1. 安装依赖（curl、tar、jq）
-2. 下载安装 sing-box 最新稳定版（1.13.x）
+2. 下载安装 sing-box **1.12.x** 最新稳定版作为服务端
 3. 自动生成 Reality 密钥对和 short_id
 4. 写入服务端配置到 `/etc/sing-box/config.json`，并校验
 5. 创建 systemd 服务并启动（开机自启）
 6. 自动获取服务器公网 IP
 7. 在**脚本执行目录**生成 `client-config.json`（已自动填好 IP、密码、公钥等）
+
+## 为什么服务端用 1.12.x
+
+经过源码分析，sing-box 的 Reality 服务端功能（`with_reality_server`）从 v1.12.0 起合并到 `with_utls` build tag 中，1.12.x 和 1.13.x 的官方预编译包都包含此功能。但 **1.13.x 对 Reality TLS 握手处理做了较大重构**（新增 kTLS、ECH 冲突检查、Logger 类型变更等），与部分 handshake 目标站点存在兼容性问题。使用久经验证的 1.12.x 作为服务端更为稳定可靠，且客户端 1.13.x 连接 1.12.x 服务端完全兼容。
 
 ## 部署完成后
 
@@ -47,7 +51,7 @@ systemctl stop sing-box        # 停止
 sing-box run -c client-config.json
 ```
 
-> 客户端同样需要 sing-box 1.13.x 版本。
+> 客户端使用 sing-box 1.12.x 或 1.13.x 均可。
 
 ## 配置说明
 
@@ -55,7 +59,7 @@ sing-box run -c client-config.json
 
 - 协议：AnyTLS
 - 端口：443
-- TLS 伪装：Reality（handshake 到 www.bing.com）
+- TLS 伪装：Reality（handshake 到 www.microsoft.com）
 - 配置路径：`/etc/sing-box/config.json`
 
 ### 客户端配置
@@ -78,4 +82,5 @@ singbox/
 
 - 服务端系统：Debian / Ubuntu / CentOS / RHEL 及其衍生版（需 systemd）
 - 架构：amd64、arm64、armv7、386
-- sing-box 版本：1.13.x（脚本自动下载最新稳定版）
+- 服务端 sing-box：1.12.x（脚本自动下载最新稳定版）
+- 客户端 sing-box：1.12.x 或 1.13.x 均可

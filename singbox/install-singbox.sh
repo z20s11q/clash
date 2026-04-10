@@ -30,9 +30,11 @@ fi
 SB_USER="$1"
 SB_PASS="$2"
 SB_PORT=443
+SNI="www.microsoft.com"
 CONFIG_DIR="/etc/sing-box"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 CLIENT_FILE="${PWD}/client-config.json"
+SERVER_VER_LINE="1.12"
 
 # ======================== 检测架构 ========================
 detect_arch() {
@@ -77,24 +79,24 @@ install_singbox() {
         local ver
         ver=$(sing-box version 2>/dev/null | head -1 | awk '{print $NF}')
         info "sing-box 已安装，版本: ${ver}"
-        if [[ "$ver" == 1.13.* ]]; then
-            info "版本符合要求，跳过安装"
+        if [[ "$ver" == 1.12.* || "$ver" == 1.13.* ]]; then
+            info "版本符合要求 (${ver})，跳过安装"
             return 0
         fi
-        warn "版本不是 1.13.x，将重新安装..."
+        warn "版本过旧，将重新安装..."
     fi
 
     local arch
     arch=$(detect_arch)
 
-    info "获取 sing-box 最新稳定版本号..."
+    info "获取 sing-box ${SERVER_VER_LINE}.x 最新版本号..."
     local version
     version=$(curl -s "https://api.github.com/repos/SagerNet/sing-box/releases" \
-        | jq -r '[.[] | select(.prerelease == false)][0].tag_name' \
+        | jq -r --arg vl "$SERVER_VER_LINE" '[.[] | select(.prerelease == false) | select(.tag_name | startswith("v" + $vl + "."))][0].tag_name' \
         | sed 's/^v//')
 
     if [[ -z "$version" || "$version" == "null" ]]; then
-        version="1.13.3"
+        version="${SERVER_VER_LINE}.25"
         warn "无法获取最新版本，使用默认版本: ${version}"
     fi
 
@@ -174,11 +176,11 @@ write_server_config() {
       ],
       "tls": {
         "enabled": true,
-        "server_name": "www.bing.com",
+        "server_name": "${SNI}",
         "reality": {
           "enabled": true,
           "handshake": {
-            "server": "www.bing.com",
+            "server": "${SNI}",
             "server_port": 443
           },
           "private_key": "${PRIVATE_KEY}",
@@ -251,7 +253,7 @@ write_client_config() {
       "password": "${SB_PASS}",
       "tls": {
         "enabled": true,
-        "server_name": "www.bing.com",
+        "server_name": "${SNI}",
         "utls": {
           "enabled": true,
           "fingerprint": "chrome"
@@ -322,7 +324,7 @@ print_result() {
     echo -e "  ${YELLOW}端口:${NC}           ${SB_PORT}"
     echo -e "  ${YELLOW}用户名:${NC}         ${SB_USER}"
     echo -e "  ${YELLOW}密码:${NC}           ${SB_PASS}"
-    echo -e "  ${YELLOW}伪装域名:${NC}       www.bing.com"
+    echo -e "  ${YELLOW}伪装域名:${NC}       ${SNI}"
     echo -e "  ${YELLOW}Private Key:${NC}    ${PRIVATE_KEY}"
     echo -e "  ${YELLOW}Public Key:${NC}     ${PUBLIC_KEY}"
     echo -e "  ${YELLOW}Short ID:${NC}       ${SHORT_ID}"
