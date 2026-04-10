@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================
-#  sing-box AnyTLS + Reality 一键部署脚本
+#  sing-box AnyTLS + Reality 一键部署脚本 (1.13.x)
 #  用法: bash install-singbox.sh <用户名> <密码>
 # ============================================================
 
@@ -34,7 +34,6 @@ SNI="www.microsoft.com"
 CONFIG_DIR="/etc/sing-box"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 CLIENT_FILE="${PWD}/client-config.json"
-SERVER_VER_LINE="1.12"
 
 # ======================== 检测架构 ========================
 detect_arch() {
@@ -63,13 +62,13 @@ install_deps() {
     info "安装必要依赖..."
     if command -v apt-get &>/dev/null; then
         apt-get update -qq
-        apt-get install -y curl tar jq >/dev/null 2>&1
+        apt-get install -y curl tar jq openssl >/dev/null 2>&1
     elif command -v dnf &>/dev/null; then
-        dnf install -y curl tar jq >/dev/null 2>&1
+        dnf install -y curl tar jq openssl >/dev/null 2>&1
     elif command -v yum &>/dev/null; then
-        yum install -y curl tar jq >/dev/null 2>&1
+        yum install -y curl tar jq openssl >/dev/null 2>&1
     else
-        warn "无法自动安装依赖，请确保 curl / tar / jq 已安装"
+        warn "无法自动安装依赖，请确保 curl / tar / jq / openssl 已安装"
     fi
 }
 
@@ -79,24 +78,24 @@ install_singbox() {
         local ver
         ver=$(sing-box version 2>/dev/null | head -1 | awk '{print $NF}')
         info "sing-box 已安装，版本: ${ver}"
-        if [[ "$ver" == 1.12.* || "$ver" == 1.13.* ]]; then
-            info "版本符合要求 (${ver})，跳过安装"
+        if [[ "$ver" == 1.13.* ]]; then
+            info "版本符合要求，跳过安装"
             return 0
         fi
-        warn "版本过旧，将重新安装..."
+        warn "版本不是 1.13.x，将重新安装..."
     fi
 
     local arch
     arch=$(detect_arch)
 
-    info "获取 sing-box ${SERVER_VER_LINE}.x 最新版本号..."
+    info "获取 sing-box 1.13.x 最新稳定版本号..."
     local version
     version=$(curl -s "https://api.github.com/repos/SagerNet/sing-box/releases" \
-        | jq -r --arg vl "$SERVER_VER_LINE" '[.[] | select(.prerelease == false) | select(.tag_name | startswith("v" + $vl + "."))][0].tag_name' \
+        | jq -r '[.[] | select(.prerelease == false) | select(.tag_name | startswith("v1.13."))][0].tag_name' \
         | sed 's/^v//')
 
     if [[ -z "$version" || "$version" == "null" ]]; then
-        version="${SERVER_VER_LINE}.25"
+        version="1.13.5"
         warn "无法获取最新版本，使用默认版本: ${version}"
     fi
 
@@ -133,6 +132,40 @@ EOF
     info "sing-box v${version} 安装完成"
 }
 
+# ======================== 验证 Reality 支持 ========================
+check_reality_support() {
+    info "检查 sing-box 是否包含 Reality 支持..."
+    local tags
+    tags=$(sing-box version 2>/dev/null | grep -i 'Tags:' || true)
+    if echo "$tags" | grep -q 'with_utls'; then
+        info "Reality 支持已确认 (with_utls 已编译)"
+    else
+        warn "无法确认 with_utls tag，继续尝试..."
+    fi
+}
+
+# ======================== 验证 handshake 目标连通性 ========================
+check_handshake_target() {
+    info "验证 handshake 目标 ${SNI}:443 的连通性..."
+
+    if ! curl -so /dev/null --connect-timeout 5 "https://${SNI}" 2>/dev/null; then
+        warn "${SNI} HTTPS 连接超时，尝试 TLS 握手测试..."
+    fi
+
+    if echo | openssl s_client -connect "${SNI}:443" -servername "${SNI}" </dev/null 2>/dev/null | grep -q 'Verify return code: 0'; then
+        info "${SNI}:443 TLS 握手成功"
+    else
+        local alt_sni="itunes.apple.com"
+        warn "${SNI}:443 TLS 握手失败，切换到备选: ${alt_sni}"
+        if echo | openssl s_client -connect "${alt_sni}:443" -servername "${alt_sni}" </dev/null 2>/dev/null | grep -q 'Verify return code: 0'; then
+            SNI="$alt_sni"
+            info "备选 ${SNI}:443 TLS 握手成功"
+        else
+            warn "备选也不通，继续使用 ${SNI}（部署后请自行验证）"
+        fi
+    fi
+}
+
 # ======================== 生成密钥 ========================
 generate_keys() {
     info "生成 Reality 密钥对..."
@@ -149,6 +182,9 @@ generate_keys() {
     fi
 
     info "密钥对生成成功"
+    info "  PrivateKey: ${PRIVATE_KEY}"
+    info "  PublicKey:  ${PUBLIC_KEY}"
+    info "  ShortID:    ${SHORT_ID}"
 }
 
 # ======================== 写入服务端配置 ========================
@@ -308,7 +344,8 @@ start_service() {
     if systemctl is-active --quiet sing-box; then
         info "sing-box 服务已启动"
     else
-        warn "sing-box 服务似乎未正常启动，请检查日志: journalctl -u sing-box --no-pager -n 20"
+        warn "sing-box 服务似乎未正常启动，请检查日志:"
+        journalctl -u sing-box --no-pager -n 10
     fi
 }
 
@@ -320,6 +357,7 @@ print_result() {
     echo -e "${GREEN}  sing-box AnyTLS + Reality 部署完成！${NC}"
     echo -e "${CYAN}============================================================${NC}"
     echo ""
+    echo -e "  ${YELLOW}sing-box 版本:${NC}  $(sing-box version 2>/dev/null | head -1 | awk '{print $NF}')"
     echo -e "  ${YELLOW}服务器 IP:${NC}      ${server_ip}"
     echo -e "  ${YELLOW}端口:${NC}           ${SB_PORT}"
     echo -e "  ${YELLOW}用户名:${NC}         ${SB_USER}"
@@ -349,12 +387,14 @@ print_result() {
 # ======================== 主流程 ========================
 main() {
     echo -e "${CYAN}============================================================${NC}"
-    echo -e "${CYAN}    sing-box AnyTLS + Reality 一键部署脚本${NC}"
+    echo -e "${CYAN}    sing-box AnyTLS + Reality 一键部署脚本 (1.13.x)${NC}"
     echo -e "${CYAN}============================================================${NC}"
     echo ""
 
     install_deps
     install_singbox
+    check_reality_support
+    check_handshake_target
     generate_keys
 
     local server_ip

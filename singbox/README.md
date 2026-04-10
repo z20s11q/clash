@@ -1,6 +1,6 @@
 # sing-box AnyTLS + Reality 一键部署
 
-使用 AnyTLS 协议 + Reality TLS 伪装，一键部署代理服务端并自动生成客户端配置。
+基于 sing-box **v1.13.x**，使用 AnyTLS 协议 + Reality TLS 伪装，一键部署代理服务端并自动生成客户端配置。
 
 ## 快速开始
 
@@ -18,17 +18,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/z20s11q/clash/main/singbox/i
 
 ## 脚本做了什么
 
-1. 安装依赖（curl、tar、jq）
-2. 下载安装 sing-box **1.12.x** 最新稳定版作为服务端
-3. 自动生成 Reality 密钥对和 short_id
-4. 写入服务端配置到 `/etc/sing-box/config.json`，并校验
-5. 创建 systemd 服务并启动（开机自启）
-6. 自动获取服务器公网 IP
-7. 在**脚本执行目录**生成 `client-config.json`（已自动填好 IP、密码、公钥等）
-
-## 为什么服务端用 1.12.x
-
-经过源码分析，sing-box 的 Reality 服务端功能（`with_reality_server`）从 v1.12.0 起合并到 `with_utls` build tag 中，1.12.x 和 1.13.x 的官方预编译包都包含此功能。但 **1.13.x 对 Reality TLS 握手处理做了较大重构**（新增 kTLS、ECH 冲突检查、Logger 类型变更等），与部分 handshake 目标站点存在兼容性问题。使用久经验证的 1.12.x 作为服务端更为稳定可靠，且客户端 1.13.x 连接 1.12.x 服务端完全兼容。
+1. 安装依赖（curl、tar、jq、openssl）
+2. 下载安装 sing-box **1.13.x** 最新稳定版
+3. 验证 Reality 支持（检查 `with_utls` build tag）
+4. 验证 handshake 目标站点连通性（不通则自动切换备选）
+5. 自动生成 Reality 密钥对和 short_id
+6. 写入服务端配置到 `/etc/sing-box/config.json`，并校验
+7. 创建 systemd 服务并启动（开机自启）
+8. 自动获取服务器公网 IP
+9. 在**脚本执行目录**生成 `client-config.json`（已自动填好 IP、密码、公钥等）
 
 ## 部署完成后
 
@@ -59,7 +57,7 @@ sing-box run -c client-config.json
 
 - 协议：AnyTLS
 - 端口：443
-- TLS 伪装：Reality（handshake 到 www.microsoft.com）
+- TLS 伪装：Reality（handshake 到 www.microsoft.com，不通则自动切换备选）
 - 配置路径：`/etc/sing-box/config.json`
 
 ### 客户端配置
@@ -68,6 +66,20 @@ sing-box run -c client-config.json
 - DNS：Google DoT (8.8.8.8) 走代理，阿里 (223.5.5.5) 直连
 - 路由：私有 IP 直连，其余走代理
 - TLS：uTLS Chrome 指纹 + Reality
+
+## 常见问题
+
+### "REALITY: processed invalid connection" 错误
+
+该错误来自 `metacubex/utls` 库的 Reality 握手逻辑，常见原因：
+
+1. **密钥不匹配** — 客户端的 `public_key` 和服务端的 `private_key` 不是同一对
+2. **short_id 不匹配** — 客户端和服务端的 `short_id` 不一致
+3. **server_name 不匹配** — 客户端和服务端的 SNI 不一致
+4. **时间偏差** — 客户端和服务端系统时间差距超过 1 分钟
+5. **handshake 目标不通** — 服务端无法连接 handshake 目标站点的 443 端口
+
+解决：重新执行脚本即可，密钥和配置会自动重新生成且保持一致。
 
 ## 文件说明
 
@@ -82,5 +94,5 @@ singbox/
 
 - 服务端系统：Debian / Ubuntu / CentOS / RHEL 及其衍生版（需 systemd）
 - 架构：amd64、arm64、armv7、386
-- 服务端 sing-box：1.12.x（脚本自动下载最新稳定版）
+- 服务端 sing-box：1.13.x（脚本自动下载最新稳定版）
 - 客户端 sing-box：1.12.x 或 1.13.x 均可
